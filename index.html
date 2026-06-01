@@ -133,6 +133,12 @@
     .workout-exercise-title{font-size:32px;font-weight:950;letter-spacing:-.05em;margin:6px 0}
     .big-set-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
     .big-set-grid input{font-size:22px;font-weight:900;text-align:center;padding:16px}
+
+    .mode-set-inputs{display:grid;grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:10px;margin-top:14px}
+    .mode-set-field label{font-size:11px;margin-bottom:5px}
+    .mode-set-field input{font-size:22px;font-weight:900;text-align:center;padding:16px}
+    .mode-set-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+
     .mode-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
     .mode-actions .full-row{grid-column:1/-1}
     .live-volume{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0}
@@ -167,6 +173,12 @@
     .workout-exercise-title{font-size:32px;font-weight:950;letter-spacing:-.05em;margin:6px 0}
     .big-set-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
     .big-set-grid input{font-size:22px;font-weight:900;text-align:center;padding:16px}
+
+    .mode-set-inputs{display:grid;grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:10px;margin-top:14px}
+    .mode-set-field label{font-size:11px;margin-bottom:5px}
+    .mode-set-field input{font-size:22px;font-weight:900;text-align:center;padding:16px}
+    .mode-set-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+
     .mode-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
     .mode-actions .full-row{grid-column:1/-1}
     .live-volume{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0}
@@ -464,16 +476,21 @@
             <label>Gewicht</label>
             <input id="modeWeight" placeholder="kg" inputmode="decimal">
           </div>
-          <div>
-            <label>Herhalingen</label>
-            <input id="modeReps" placeholder="reps" inputmode="numeric">
+        </div>
+
+        <div>
+          <label style="margin-top:14px">Herhalingen per set</label>
+          <div class="mode-set-inputs" id="modeSetInputs"></div>
+          <div class="mode-set-actions">
+            <button class="icon-btn add-set-btn" id="modeAddSet">Extra set toevoegen</button>
+            <button class="icon-btn" id="modeRemoveSet">Laatste set verwijderen</button>
           </div>
         </div>
 
         <div class="mode-actions">
           <button class="btn secondary" id="modePrev">Vorige</button>
           <button class="btn secondary" id="modeNext">Volgende</button>
-          <button class="btn full-row" id="modeSaveSet">Set opslaan + rusttimer</button>
+          <button class="btn full-row" id="modeSaveSet">Sets opslaan + rusttimer</button>
           <button class="btn full-row" id="modeFinish">Training afronden en opslaan</button>
         </div>
       </div>
@@ -974,6 +991,30 @@
       return activeWorkoutMode.exercises[activeWorkoutMode.index];
     }
 
+    function renderModeSetInputs(key, ex){
+      const modeLog = activeWorkoutMode.logs[key] || {};
+      const stored = state.exerciseLogs[key] || {};
+      const reps = Array.isArray(modeLog.reps) && modeLog.reps.length
+        ? modeLog.reps
+        : (Array.isArray(stored.reps) ? stored.reps : []);
+      const count = Math.max(getSetCountFromText(ex.sets), reps.length || 0);
+      modeSetInputs.innerHTML = Array.from({length:count}).map((_,i)=>`
+        <div class="mode-set-field">
+          <label>Set ${i + 1}</label>
+          <input data-mode-set-index="${i}" value="${reps[i] || ''}" placeholder="reps" inputmode="numeric">
+        </div>
+      `).join('');
+      modeSetInputs.querySelectorAll('[data-mode-set-index]').forEach(input=>{
+        input.oninput = () => {
+          activeWorkoutMode.logs[key] ||= {weight:'', reps:[]};
+          activeWorkoutMode.logs[key].weight = modeWeight.value.trim();
+          activeWorkoutMode.logs[key].reps ||= [];
+          activeWorkoutMode.logs[key].reps[Number(input.dataset.modeSetIndex)] = input.value;
+          renderModeStats();
+        };
+      });
+    }
+
     function renderWorkoutMode(){
       const ex = currentModeExercise();
       if(!ex) return;
@@ -992,7 +1033,12 @@
       modeMeta.textContent = ex.custom ? 'Eigen oefening' : 'Schema oefening';
       modeAdvice.innerHTML = `<div class="progress-advice ${getProgressAdvice(ex.name).className}">${getProgressAdvice(ex.name).label}</div>`;
       modeWeight.value = lastWeight;
-      modeReps.value = '';
+      renderModeSetInputs(key, ex);
+      modeWeight.oninput = () => {
+        activeWorkoutMode.logs[key] ||= {weight:'', reps:[]};
+        activeWorkoutMode.logs[key].weight = modeWeight.value.trim();
+        renderModeStats();
+      };
       renderModeStats();
       renderModeTimer();
     }
@@ -1032,23 +1078,26 @@
     function saveModeSet(){
       const ex = currentModeExercise();
       const key = ex.id || `mode-${activeWorkoutMode.day}-${activeWorkoutMode.index}`;
-      const reps = modeReps.value.trim();
       const weight = modeWeight.value.trim();
-      if(!weight || !reps){
-        alert('Vul eerst gewicht en herhalingen in.');
+      const reps = Array.from(modeSetInputs.querySelectorAll('[data-mode-set-index]'))
+        .map(input => input.value.trim())
+        .filter(Boolean);
+
+      if(!weight || !reps.length){
+        alert('Vul eerst gewicht en minimaal één set in.');
         return;
       }
+
       activeWorkoutMode.logs[key] ||= {weight:'', reps:[]};
       activeWorkoutMode.logs[key].weight = weight;
-      activeWorkoutMode.logs[key].reps.push(reps);
+      activeWorkoutMode.logs[key].reps = reps;
 
       state.exerciseLogs[key] ||= {};
       state.exerciseLogs[key].weight = weight;
-      state.exerciseLogs[key].reps ||= [];
-      state.exerciseLogs[key].reps.push(reps);
+      state.exerciseLogs[key].reps = reps;
       localStorage.setItem(storeKey, JSON.stringify(state));
 
-      modeReps.value = '';
+      renderModeSetInputs(key, ex);
       renderModeStats();
       startModeTimer();
     }
@@ -1239,6 +1288,29 @@
     if(exitWorkoutMode) exitWorkoutMode.onclick = closeWorkoutMode;
     if(modePrev) modePrev.onclick = ()=>{activeWorkoutMode.index=Math.max(0,activeWorkoutMode.index-1);renderWorkoutMode();};
     if(modeNext) modeNext.onclick = ()=>{activeWorkoutMode.index=Math.min(activeWorkoutMode.exercises.length-1,activeWorkoutMode.index+1);renderWorkoutMode();};
+    if(modeAddSet) modeAddSet.onclick = ()=>{
+      const ex = currentModeExercise();
+      const key = ex.id || `mode-${activeWorkoutMode.day}-${activeWorkoutMode.index}`;
+      activeWorkoutMode.logs[key] ||= {weight:modeWeight.value.trim(), reps:[]};
+      const currentReps = Array.from(modeSetInputs.querySelectorAll('[data-mode-set-index]')).map(input=>input.value.trim());
+      activeWorkoutMode.logs[key].weight = modeWeight.value.trim();
+      activeWorkoutMode.logs[key].reps = [...currentReps, ''];
+      renderModeSetInputs(key, ex);
+      const inputs = modeSetInputs.querySelectorAll('[data-mode-set-index]');
+      inputs[inputs.length - 1]?.focus();
+    };
+    if(modeRemoveSet) modeRemoveSet.onclick = ()=>{
+      const ex = currentModeExercise();
+      const key = ex.id || `mode-${activeWorkoutMode.day}-${activeWorkoutMode.index}`;
+      const currentReps = Array.from(modeSetInputs.querySelectorAll('[data-mode-set-index]')).map(input=>input.value.trim());
+      if(currentReps.length > 1){
+        activeWorkoutMode.logs[key] ||= {weight:modeWeight.value.trim(), reps:[]};
+        activeWorkoutMode.logs[key].weight = modeWeight.value.trim();
+        activeWorkoutMode.logs[key].reps = currentReps.slice(0, -1);
+        renderModeSetInputs(key, ex);
+        renderModeStats();
+      }
+    };
     if(modeSaveSet) modeSaveSet.onclick = saveModeSet;
     if(modeFinish) modeFinish.onclick = finishModeWorkout;
     if(modeTimerReset) modeTimerReset.onclick = ()=>{clearInterval(activeWorkoutMode.interval); activeWorkoutMode.timer=activeWorkoutMode.timerInitial; renderModeTimer();};
