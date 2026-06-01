@@ -421,7 +421,7 @@
           <h2>Instellingen</h2>
           <div class="grid3">
             <div><label>Dagelijks eiwitdoel</label><input id="proteinGoal" type="number" value="130"></div>
-            <div><label>Naam sportschool</label><input id="gymName" value="Studio Gym Appingedam"></div>
+            <div><label>Naam sportschool</label><input id="gymName" value="Studio Gym"></div>
             <div><label>Trainingsdagen per week</label><input id="daysPerWeek" type="number" value="3"></div>
           </div>
           <div class="row" style="margin-top:12px">
@@ -575,7 +575,7 @@
     const today = new Date().toISOString().slice(0,10);
     const previousState = JSON.parse(localStorage.getItem(storeKey) || localStorage.getItem(oldKey) || '{}');
     const state = previousState || {};
-    state.settings ||= {proteinGoal:130,gymName:'Studio Gym Appingedam',daysPerWeek:3};
+    state.settings ||= {proteinGoal:130,gymName:'Studio Gym',daysPerWeek:3};
     state.protein ||= {};
     state.exerciseLogs ||= {};
     state.logs ||= [];
@@ -614,7 +614,7 @@
       todayChecks.querySelectorAll('input').forEach(i=>i.onchange=()=>{state.checks[today][i.dataset.check]=i.checked;save()});
       const grams = Number(state.protein[today]||0), goal = Number(state.settings.proteinGoal||130);
       if(typeof proteinInput !== 'undefined' && proteinInput) proteinInput.value = grams || '';
-      streakText.textContent = `${state.settings.daysPerWeek || 3}x per week · ${state.settings.gymName || 'Studio Gym Appingedam'}`;
+      streakText.textContent = `${state.settings.daysPerWeek || 3}x per week · ${state.settings.gymName || 'Studio Gym'}`;
     }
 
     function parseWeightValue(value){
